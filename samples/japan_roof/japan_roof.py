@@ -41,7 +41,7 @@ ROOT_DIR = os.path.abspath("../../")
 # Import Mask RCNN
 sys.path.append(ROOT_DIR)  # To find local version of the library
 from mrcnn.config import Config
-from mrcnn import model as modellib, utils
+from custom_lib import model as modellib, utils
 
 # Path to trained weights file
 COCO_WEIGHTS_PATH = os.path.join(ROOT_DIR, "mask_rcnn_coco.h5")
@@ -67,7 +67,7 @@ class PascalVOCConfig(Config):
     IMAGES_PER_GPU = 1
 
     # Number of classes (including background)
-    NUM_CLASSES = 1 + 8  # Background + balloon
+    NUM_CLASSES = 1 + 9  # Background + balloon
 
     # Number of training steps per epoch
     STEPS_PER_EPOCH = 100
@@ -102,6 +102,7 @@ class PascalVOCDataset(utils.Dataset):
         self.add_class("pascalvoc", 6, "field")
         self.add_class("pascalvoc", 7, "park")
         self.add_class("pascalvoc", 8, "facility")
+        self.add_class("pascalvoc", 9, "solarpanel")
         # Train or validation dataset?
         assert subset in ["train", "val"]
         dataset_dir = os.path.join(dataset_dir, subset)
@@ -133,6 +134,7 @@ class PascalVOCDataset(utils.Dataset):
         field_cnt = 0
         park_cnt = 0
         facility_cnt = 0
+        solarpanel_cnt = 0
         img_cnt = 0
 
         for path, dirs, files in os.walk(json_path):
@@ -170,6 +172,8 @@ class PascalVOCDataset(utils.Dataset):
                         elif label == "facility":
                             num_ids.append(8)
                             facility_cnt += 1
+                        elif label == "solarpanel":
+                            num_ids.append(9)
                     except:
                         pass
 
@@ -198,7 +202,7 @@ class PascalVOCDataset(utils.Dataset):
         image_info = self.image_info[image_id]
         if image_info["source"] != "pascalvoc":
             return super(self.__class__, self).load_mask(image_id)
-
+        
         num_ids = image_info['num_ids']
         # Convert polygons to a bitmap mask of shape
         # [height, width, instance_count]
@@ -211,11 +215,21 @@ class PascalVOCDataset(utils.Dataset):
             all_points_x = []
             all_points_y = []
             for point in p["points"]:
+                if point[0] > 640:
+                    point[0] = 640
+                if point[1] > 640:
+                    point[1] = 640
                 all_points_x.append(point[0])
                 all_points_y.append(point[1])
 
-            rr, cc = skimage.draw.polygon(all_points_y, all_points_x)
-            mask[rr, cc, i] = 1
+            try:
+                rr, cc = skimage.draw.polygon(all_points_y, all_points_x)
+                mask[rr, cc, i] = 1
+            except IndexError:
+                with open('error_file.txt','a') as fd:
+                    fd.write(str(self.image_info[image_id]))
+                    fd.write('\n')
+                    fd.write('\n')
 
         num_ids=np.array(num_ids, dtype=np.int32)
         # Return mask, and array of class IDs of each instance. Since we have
@@ -248,16 +262,16 @@ def train(model):
     # COCO trained weights, we don't need to train too long. Also,
     # no need to train all layers, just the heads should do it.
     print("Training network heads")
-#    infconfig = _InferenceConfig()
-#    model_inference = modellib.MaskRCNN(mode="inference", config=infconfig, model_dir=args.logs)
-#    mean_average_precision_callback = modellib.MeanAveragePrecisionCallback(model, model_inference,
-#                                                                            dataset_val, calculate_at_every_X_epoch=1,
-#                                                                            verbose=1)
+    infconfig = _InferenceConfig()
+    model_inference = modellib.MaskRCNN(mode="inference", config=infconfig, model_dir=args.logs)
+    mean_average_precision_callback = modellib.MeanAveragePrecisionCallback(model, model_inference,
+                                                                            dataset_val, calculate_at_every_X_epoch=4,
+                                                                            verbose=1)
     model.train(dataset_train, dataset_val,
                 learning_rate=config.LEARNING_RATE,
                 epochs=2000000,
-                layers='heads')
-#                custom_callbacks=[mean_average_precision_callback])
+                layers='heads',
+                custom_callbacks=[mean_average_precision_callback])
 
 
 def color_splash(image, mask):
