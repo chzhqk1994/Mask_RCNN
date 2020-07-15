@@ -1215,6 +1215,14 @@ def load_image_gt(dataset, config, image_id, augment=False, augmentation=None,
     # Load image and mask
     image = dataset.load_image(image_id)
     mask, class_ids = dataset.load_mask(image_id)
+    # mask_length = mask.shape[-1]
+    # import cv2
+    # for i in range(0, mask_length):
+    #     save_dir = '/Users/shawn/Desktop/test/' + str(i) + '.png'
+    #     a = mask[:, :, i]
+    #     num_true = np.count_nonzero(a)
+    #     cv2.imwrite(save_dir, mask[:, :, i] * 255)
+
     original_shape = image.shape
     image, window, scale, padding, crop = utils.resize_image(
         image,
@@ -1841,6 +1849,8 @@ class MaskRCNN():
         self.model_dir = model_dir
         self.set_log_dir()
         self.keras_model = self.build(mode=mode, config=config)
+        self.keras_model.metrics_tensors = []
+
 
     def build(self, mode, config):
         """Build Mask R-CNN architecture.

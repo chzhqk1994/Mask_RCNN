@@ -33,8 +33,12 @@ import json
 import datetime
 import numpy as np
 import skimage.draw
+import math
+import platform
 
-os.environ["CUDA_VISIBLE_DEVICES"]='1'
+FLATFORM = platform.system()
+
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 # Root directory of the project
 ROOT_DIR = os.path.abspath("../../")
 
@@ -49,6 +53,7 @@ COCO_WEIGHTS_PATH = os.path.join(ROOT_DIR, "mask_rcnn_coco.h5")
 # Directory to save logs and model checkpoints, if not provided
 # through the command line argument --logs
 DEFAULT_LOGS_DIR = os.path.join(ROOT_DIR, "logs")
+
 
 ############################################################
 #  Configurations
@@ -81,6 +86,7 @@ class _InferenceConfig(PascalVOCConfig):
     # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
     GPU_COUNT = 1
     IMAGES_PER_GPU = 1
+
 
 ############################################################
 #  Dataset
@@ -139,10 +145,13 @@ class PascalVOCDataset(utils.Dataset):
 
         for path, dirs, files in os.walk(json_path):
             for file in files:
+                if FLATFORM == 'Darwin':
+                    if file == '.DS_Store':
+                        continue
                 img_cnt += 1
                 num_ids = []
                 json_file = os.path.join(path, file)
-                annotations = json.load(open(json_file))
+                annotations = json.load(open(json_file, 'r'))
 
                 polygons = annotations['shapes']
                 for i in polygons:
@@ -202,7 +211,7 @@ class PascalVOCDataset(utils.Dataset):
         image_info = self.image_info[image_id]
         if image_info["source"] != "pascalvoc":
             return super(self.__class__, self).load_mask(image_id)
-        
+
         num_ids = image_info['num_ids']
         # Convert polygons to a bitmap mask of shape
         # [height, width, instance_count]
@@ -222,16 +231,33 @@ class PascalVOCDataset(utils.Dataset):
                 all_points_x.append(point[0])
                 all_points_y.append(point[1])
 
+            # If shape_type is 'Circle'
+            if p["shape_type"] == 'circle':
+                center_coord = [all_points_x[0], all_points_y[0]]
+                second_coord = [all_points_x[1], all_points_y[1]]
+
+                points_x, points_y = self.get_circle_coords(center_coord=center_coord, second_coord=second_coord,
+                                                            num_points=20,
+                                                            flag='separate')
+
+                all_points_x = points_x
+                all_points_y = points_y
+
+            # If shape_type is 'Rectangle'
+            if p['shape_type'] == 'rectangle':
+                all_points_x = [all_points_x[0], all_points_x[0], all_points_x[1], all_points_x[1]]
+                all_points_y = [all_points_y[0], all_points_y[1], all_points_y[1], all_points_y[0]]
+
             try:
                 rr, cc = skimage.draw.polygon(all_points_y, all_points_x)
                 mask[rr, cc, i] = 1
             except IndexError:
-                with open('error_file.txt','a') as fd:
+                with open('error_file.txt', 'a') as fd:
                     fd.write(str(self.image_info[image_id]))
                     fd.write('\n')
                     fd.write('\n')
 
-        num_ids=np.array(num_ids, dtype=np.int32)
+        num_ids = np.array(num_ids, dtype=np.int32)
         # Return mask, and array of class IDs of each instance. Since we have
         # one class ID only, we return an array of 1s
         return mask.astype(np.bool), num_ids
@@ -243,6 +269,44 @@ class PascalVOCDataset(utils.Dataset):
             return info["path"]
         else:
             super(self.__class__, self).image_reference(image_id)
+
+    def rotate(self, x, y, r):
+        rx = (x * math.cos(r)) - (y * math.sin(r))
+        ry = (y * math.cos(r)) + (x * math.sin(r))
+        return rx, ry
+
+    def get_circle_coords(self, center_coord, second_coord, num_points=20, flag='pack'):
+        # calculate distance_between_points
+        x = center_coord[0] - second_coord[0]
+        y = center_coord[1] - second_coord[1]
+        radius = math.sqrt(pow(x, 2) + pow(y, 2))
+
+        arc = (2 * math.pi) / num_points  # what is the angle between two of the points
+
+        if flag == 'separate':
+            points_x = []
+            points_y = []
+            for p in range(num_points):
+                px, py = self.rotate(0, radius, arc * p)
+                px += center_coord[0]
+                py += center_coord[1]
+
+                points_x.append(px)
+                points_y.append(py)
+            return points_x, points_y
+
+        elif flag == 'pack':
+            points = []
+            for p in range(num_points):
+                px, py = self.rotate(0, radius, arc * p)
+                px += center_coord[0]
+                py += center_coord[1]
+                points.append([px, py])
+
+            return points
+
+        else:
+            raise Exception("get_circle_coords FLAG Error : Only input 'pack' or 'separate'")
 
 
 def train(model):
@@ -381,8 +445,8 @@ if __name__ == '__main__':
     if args.command == "train":
         assert args.dataset, "Argument --dataset is required for training"
     elif args.command == "splash":
-        assert args.image or args.video,\
-               "Provide --image or --video to apply color splash"
+        assert args.image or args.video, \
+            "Provide --image or --video to apply color splash"
 
     print("Weights: ", args.weights)
     print("Dataset: ", args.dataset)
@@ -397,6 +461,8 @@ if __name__ == '__main__':
             # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
             GPU_COUNT = 1
             IMAGES_PER_GPU = 1
+
+
         config = InferenceConfig()
     config.display()
 
