@@ -1,10 +1,16 @@
 import os
+import sys
 import random
 import numpy as np
 import tensorflow as tf
 from skimage import io
 import cv2
 import colorsys
+
+ROOT_DIR = os.path.abspath("../../")
+
+# Import Mask RCNN
+sys.path.append(ROOT_DIR)  # To find local version of the library
 import mrcnn.model as modellib
 from samples.japan_roof import japan_roof
 
