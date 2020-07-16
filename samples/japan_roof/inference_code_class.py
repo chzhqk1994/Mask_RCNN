@@ -6,6 +6,7 @@ import tensorflow as tf
 from skimage import io
 import cv2
 import colorsys
+import time
 
 ROOT_DIR = os.path.abspath("../../")
 
@@ -75,11 +76,15 @@ class InferenceClass():
 
     def inference(self, input_image):
         with tf.device(self.DEVICE):
+            loop_start_time = time.time()
+
             # png 이미지에 alpha 채널이 있다면 제거 (640, 640 ,4)  >> (640, 640, 3)
             if input_image.shape[-1] == 4:
                 image = input_image[..., :3]
 
+            inference_start_time = time.time()
             results = self.model.detect([image], verbose=1)
+            inference_end_time = time.time()
 
             # Display results
             r = results[0]
@@ -136,6 +141,12 @@ class InferenceClass():
                 if self.show_mask:
                     masked_image = self.apply_mask(image, mask, color)
                     image = masked_image
+
+            loop_end_time = time.time()
+            total_elapsed_time = loop_end_time - loop_start_time
+            inference_time = inference_end_time - inference_start_time
+            print('total_elapsed_time : ', total_elapsed_time)
+            print('inference_time : ', inference_time)
 
             cv2.imwrite(self.result_save_dir + 'input_image.png', image)
 
