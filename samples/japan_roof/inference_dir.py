@@ -10,6 +10,8 @@ from skimage import io
 import cv2
 import colorsys
 
+ROOT_DIR = os.path.abspath("../../")
+sys.path.append(ROOT_DIR)
 from mrcnn import utils
 from mrcnn import visualize
 import mrcnn.model as modellib
