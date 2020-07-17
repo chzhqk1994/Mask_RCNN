@@ -23,7 +23,7 @@ class InferenceConfig(japan_roof.PascalVOCConfig().__class__):
 
 
 class InferenceClass():
-    def __init__(self):
+    def __init__(self, MODEL_DIR):
         self.model = None
         self.show_bbox = True
         self.show_mask = True
@@ -36,7 +36,7 @@ class InferenceClass():
         self.DEVICE = "/cpu:0"  # /cpu:0 or /gpu:0
         self.TEST_MODE = "inference"
         self.ckpt_number = '0422'
-        self.MODEL_DIR = "./models/"
+        self.MODEL_DIR = MODEL_DIR
         self.weights_path = os.path.join(self.MODEL_DIR, "mask_rcnn_pascalvoc_" + str(self.ckpt_number) + ".h5")
         self.result_save_dir = "./images/output/"
 
@@ -71,16 +71,16 @@ class InferenceClass():
     def model_init(self):
         self.model = modellib.MaskRCNN(mode="inference", model_dir=self.MODEL_DIR,
                                   config=self.config)
-
+        print(self.weights_path)
         self.model.load_weights(self.weights_path, by_name=True)
 
-    def inference(self, input_image):
+    def inference(self, image):
         with tf.device(self.DEVICE):
             loop_start_time = time.time()
 
             # png 이미지에 alpha 채널이 있다면 제거 (640, 640 ,4)  >> (640, 640, 3)
-            if input_image.shape[-1] == 4:
-                image = input_image[..., :3]
+            if image.shape[-1] == 4:
+                image = image[..., :3]
 
             inference_start_time = time.time()
             results = self.model.detect([image], verbose=1)
@@ -150,11 +150,16 @@ class InferenceClass():
 
             cv2.imwrite(self.result_save_dir + 'input_image.png', image)
 
+            return image, inference_time
+
+
+
 
 if __name__ == '__main__':
     image = io.imread('./images/input/[0,0](135.555362E,34.640033N)_center_(135.55493E,34.640385N)min_(135.55579400000002E,34.639681N)_max_zoom_20_size_640x640.png')
 
-    obj = InferenceClass()
+    model_path = './models'
+    obj = InferenceClass(model_path)
 
     obj.inference(image)
 
