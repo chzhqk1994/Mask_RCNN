@@ -15,6 +15,8 @@ sys.path.append(ROOT_DIR)  # To find local version of the library
 import mrcnn.model as modellib
 from samples.japan_roof import japan_roof
 
+global graph
+
 
 class InferenceConfig(japan_roof.PascalVOCConfig().__class__):
     # Run detection on one image at a time
@@ -69,13 +71,17 @@ class InferenceClass():
         return colors
 
     def model_init(self):
+        global graph
         self.model = modellib.MaskRCNN(mode="inference", model_dir=self.MODEL_DIR,
                                   config=self.config)
         print(self.weights_path)
         self.model.load_weights(self.weights_path, by_name=True)
 
+        graph = tf.get_default_graph()
+
+
     def inference(self, image):
-        with tf.device(self.DEVICE):
+        with graph.as_default():
             loop_start_time = time.time()
 
             # png 이미지에 alpha 채널이 있다면 제거 (640, 640 ,4)  >> (640, 640, 3)
@@ -151,8 +157,6 @@ class InferenceClass():
             cv2.imwrite(self.result_save_dir + 'input_image.png', image)
 
             return image, inference_time
-
-
 
 
 if __name__ == '__main__':
