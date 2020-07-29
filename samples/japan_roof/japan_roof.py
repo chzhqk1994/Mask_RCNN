@@ -234,26 +234,45 @@ class PascalVOCDataset(utils.Dataset):
             # If shape_type is 'Circle'
             center_coord = []
             second_coord = []
-            if p["shape_type"] == 'circle':
-                center_coord = [all_points_x[0], all_points_y[0]]
-                second_coord = [all_points_x[1], all_points_y[1]]
+            try:
+                if p["shape_type"] == 'circle':
+                    center_coord = [all_points_x[0], all_points_y[0]]
+                    second_coord = [all_points_x[1], all_points_y[1]]
 
-                points_x, points_y = self.get_circle_coords(center_coord=center_coord, second_coord=second_coord,
-                                                            num_points=20,
-                                                            flag='separate')
+                    points_x, points_y = self.get_circle_coords(center_coord=center_coord, second_coord=second_coord,
+                                                                num_points=20,
+                                                                flag='separate')
 
-                for index in range(0, len(points_x)):
-                    if points_x[index] > 640:
-                        points_x[index] = 640
-                    if points_y[index] > 640:
-                        points_y[index] = 640
-                    if points_x[index] < 0:
-                        points_x[index] = 0
-                    if points_y[index] < 0:
-                        points_y[index] = 0
+                    for index in range(0, len(points_x)):
+                        if points_x[index] > 640:
+                            points_x[index] = 640
+                        if points_y[index] > 640:
+                            points_y[index] = 640
+                        if points_x[index] < 0:
+                            points_x[index] = 0
+                        if points_y[index] < 0:
+                            points_y[index] = 0
 
-                all_points_x = points_x
-                all_points_y = points_y
+                    all_points_x = points_x
+                    all_points_y = points_y
+
+            except IndexError as e:
+                print(e)
+                print(image_info['id'])
+                print(center_coord)
+                print(second_coord)
+                print(all_points_x)
+                print(all_points_y)
+                with open('error_file_circle.txt', 'a') as fd:
+                    fd.write(e)
+                    fd.write('image id : ' + str(image_info['id']) + '\n')
+                    fd.write('shape type : ' + str(p['shape_type']) + '\n')
+                    fd.write("center coord : " + str(center_coord) + '\n')
+                    fd.write("second coord : " + str(second_coord) + '\n')
+                    fd.write("x_coords : " + str(all_points_x) + '\n')
+                    fd.write("y_coords : " + str(all_points_y) + '\n')
+                    fd.write('\n')
+                    fd.write('\n')
 
             # If shape_type is 'Rectangle'
             if p['shape_type'] == 'rectangle':
