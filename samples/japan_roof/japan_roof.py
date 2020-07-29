@@ -242,15 +242,15 @@ class PascalVOCDataset(utils.Dataset):
                                                             num_points=20,
                                                             flag='separate')
 
-                for i in range(0, len(points_x)):
-                    if points_x[i] > 640:
-                        points_x[i] = 640
-                    if points_y[i] > 640:
-                        points_y[i] = 640
-                    if points_x[i] < 0:
-                        points_x[i] = 0
-                    if points_y[i] < 0:
-                        points_y[i] = 0
+                for index in range(0, len(points_x)):
+                    if points_x[index] > 640:
+                        points_x[index] = 640
+                    if points_y[index] > 640:
+                        points_y[index] = 640
+                    if points_x[index] < 0:
+                        points_x[index] = 0
+                    if points_y[index] < 0:
+                        points_y[index] = 0
 
                 all_points_x = points_x
                 all_points_y = points_y
