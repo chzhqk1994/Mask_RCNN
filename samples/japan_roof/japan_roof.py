@@ -75,7 +75,7 @@ class PascalVOCConfig(Config):
     NUM_CLASSES = 1 + 9  # Background + balloon
 
     # Number of training steps per epoch
-    STEPS_PER_EPOCH = 100
+    STEPS_PER_EPOCH = 5
 
     # Skip detections with < 90% confidence
     DETECTION_MIN_CONFIDENCE = 0.8
@@ -232,6 +232,8 @@ class PascalVOCDataset(utils.Dataset):
                 all_points_y.append(point[1])
 
             # If shape_type is 'Circle'
+            center_coord = []
+            second_coord = []
             if p["shape_type"] == 'circle':
                 center_coord = [all_points_x[0], all_points_y[0]]
                 second_coord = [all_points_x[1], all_points_y[1]]
@@ -239,6 +241,16 @@ class PascalVOCDataset(utils.Dataset):
                 points_x, points_y = self.get_circle_coords(center_coord=center_coord, second_coord=second_coord,
                                                             num_points=20,
                                                             flag='separate')
+
+                for i in range(0, len(points_x)):
+                    if points_x[i] > 640:
+                        points_x[i] = 640
+                    if points_y[i] > 640:
+                        points_y[i] = 640
+                    if points_x[i] < 0:
+                        points_x[i] = 0
+                    if points_y[i] < 0:
+                        points_y[i] = 0
 
                 all_points_x = points_x
                 all_points_y = points_y
@@ -251,9 +263,19 @@ class PascalVOCDataset(utils.Dataset):
             try:
                 rr, cc = skimage.draw.polygon(all_points_y, all_points_x)
                 mask[rr, cc, i] = 1
-            except IndexError:
+            except IndexError as e:
+                print(e)
+                print(p['shape_type'])
+                print(center_coord)
+                print(second_coord)
+                print(all_points_x)
+                print(all_points_y)
                 with open('error_file.txt', 'a') as fd:
-                    fd.write(str(self.image_info[image_id]))
+                    fd.write('shape type : ' + str(p['shape_type']) + '\n')
+                    fd.write("center coord : " + str(center_coord) + '\n')
+                    fd.write("second coord : " + str(second_coord) + '\n')
+                    fd.write("x_coords : " + str(all_points_x) + '\n')
+                    fd.write("y_coords : " + str(all_points_y) + '\n')
                     fd.write('\n')
                     fd.write('\n')
 
