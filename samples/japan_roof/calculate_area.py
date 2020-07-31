@@ -47,10 +47,10 @@ def apply_mask(image, mask, color, alpha=0.5):
                                   image[:, :, c])
     return image
 
-# 면적 계산을 위한 행렬의 합을 계산
 
+# 면적 계산을 위한 행렬의 합을 계산
 def solution(arr1, arr2):
-    return [[c + d for c, d in zip(a, b)] for a, b in zip(arr1,arr2)]
+    return sum([arr1, arr2])
 
 
 def random_colors(N, bright=True):
@@ -123,10 +123,9 @@ with tf.device(DEVICE):
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
             # 이미지 사이즈의 Flase array 준비
-            flat_mask = np.full((640, 640), False, dtype=bool)
-            trees_mask = np.full((640, 640), False, dtype=bool)
-            solarpanel_mask = np.full((640, 640), False, dtype=bool)
-
+            flat_mask = np.full((640, 640), 0, dtype=int)
+            trees_mask = np.full((640, 640), 0, dtype=int)
+            solarpanel_mask = np.full((640, 640), 0, dtype=int)
             for i in range(N):
                 float_color = colors[i]
                 color = [int(element * 255) for element in float_color]
@@ -172,7 +171,6 @@ with tf.device(DEVICE):
                 #             print("flat_mask : ", np.count_nonzero(flat_mask))
 
                 # 한 이미지의 마지막 루프 때 면적 계산결과를 표시
-                start_draw_cv_time = time.time()
                 if i == N - 1:
                     flat_text = "Ratio of Flat : " + str(
                         "%0.2f" % (np.count_nonzero(flat_mask) / 409600))  # 640*640 = 409600
@@ -186,12 +184,10 @@ with tf.device(DEVICE):
                     cv2.putText(masked_image, solarpanel_text, (380, 580 + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
                                 (0, 0, 0), 2)
                     cv2.putText(masked_image, trees_text, (380, 580 + 45), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
-                end_draw_cv_time = time.time()
 
             loop_end_time = time.time()
             print("Inference time : ", inference_end_time - inference_start_time)
             print("Mask time : ", end_mask_time - start_mask_time)
-            print("Draw OpenCV time : ", end_draw_cv_time - start_draw_cv_time)
             print("Total Elapsed time : ", loop_end_time - loop_start_time)
             print("\n\n")
             # cv2.imwrite(result_save_dir + file, masked_image)
