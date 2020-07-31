@@ -38,7 +38,6 @@ import platform
 
 FLATFORM = platform.system()
 
-os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 # Root directory of the project
 ROOT_DIR = os.path.abspath("../../")
 
