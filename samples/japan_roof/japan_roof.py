@@ -219,6 +219,8 @@ class PascalVOCDataset(utils.Dataset):
                         dtype=np.uint8)
 
         for i, p in enumerate(info["polygons"]):
+            is_error = False
+
             # Get indexes of pixels inside the polygon and set them to 1
             all_points_x = []
             all_points_y = []
@@ -256,6 +258,8 @@ class PascalVOCDataset(utils.Dataset):
                     all_points_y = points_y
 
             except IndexError as e:
+                is_error = True
+
                 print(e)
                 print(image_info['id'])
                 print(center_coord)
@@ -277,6 +281,9 @@ class PascalVOCDataset(utils.Dataset):
             if p['shape_type'] == 'rectangle':
                 all_points_x = [all_points_x[0], all_points_x[0], all_points_x[1], all_points_x[1]]
                 all_points_y = [all_points_y[0], all_points_y[1], all_points_y[1], all_points_y[0]]
+
+            if is_error:
+                continue
 
             try:
                 rr, cc = skimage.draw.polygon(all_points_y, all_points_x)
