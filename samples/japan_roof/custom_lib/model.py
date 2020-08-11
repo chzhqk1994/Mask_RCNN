@@ -2886,7 +2886,7 @@ def denorm_boxes_graph(boxes, shape):
 
 class MeanAveragePrecisionCallback(Callback):
     def __init__(self, train_model: MaskRCNN, inference_model: MaskRCNN, dataset: Dataset,
-                 calculate_at_every_X_epoch: int = 3, dataset_limit: int = None,
+                 class_names, calculate_at_every_X_epoch: int = 3, dataset_limit: int = None,
                  verbose: int = 1):
         """
         Callback which calculates the mAP on the defined test/validation dataset
@@ -2916,6 +2916,7 @@ class MeanAveragePrecisionCallback(Callback):
         self.train_model = train_model
         self.inference_model = inference_model
         self.dataset = dataset
+        self.dataset_class_names = class_names
         self.calculate_at_every_X_epoch = calculate_at_every_X_epoch
         self.dataset_limit = len(self.dataset.image_ids)
         if dataset_limit is not None:
@@ -2929,75 +2930,66 @@ class MeanAveragePrecisionCallback(Callback):
             self._verbose_print("Calculating mAP...")
             self._load_weights_for_model()
 
-            AP_goodroof, AP_parkinglot, AP_road, AP_trees, AP_river, AP_field, AP_park, AP_facility, AP_solarpanel,\
-            PR_goodroof, PR_parkinglot, PR_road, PR_trees, PR_river, PR_field, PR_park, PR_facility, PR_solarpanel,\
-            RE_goodroof, RE_parkinglot, RE_road, RE_trees, RE_river, RE_field, RE_park, RE_facility, RE_solarpanel\
-                = self._calculate_mean_average_precision()
+            # get AP, PR, RE variables
+            AP_variables, PR_variables, RE_variables = self._calculate_mean_average_precision()
 
-            AP_goodroof = np.mean(AP_goodroof)
-            AP_parkinglot = np.mean(AP_parkinglot)
-            AP_road = np.mean(AP_road)
-            AP_trees = np.mean(AP_trees)
-            AP_river = np.mean(AP_river)
-            AP_field = np.mean(AP_field)
-            AP_park = np.mean(AP_park)
-            AP_facility = np.mean(AP_facility)
-            AP_solarpanel = np.mean(AP_solarpanel)
+            # AP_goodroof, AP_parkinglot, AP_road, AP_trees, AP_river, AP_field, AP_park, AP_facility, AP_solarpanel,\
+            # PR_goodroof, PR_parkinglot, PR_road, PR_trees, PR_river, PR_field, PR_park, PR_facility, PR_solarpanel,\
+            # RE_goodroof, RE_parkinglot, RE_road, RE_trees, RE_river, RE_field, RE_park, RE_facility, RE_solarpanel\
+            #     = self._calculate_mean_average_precision()
 
-            PR_goodroof = np.mean(PR_goodroof)
-            PR_parkinglot = np.mean(PR_parkinglot)
-            PR_road = np.mean(PR_road)
-            PR_trees = np.mean(PR_trees)
-            PR_river = np.mean(PR_river)
-            PR_field = np.mean(PR_field)
-            PR_park = np.mean(PR_park)
-            PR_facility = np.mean(PR_facility)
-            PR_solarpanel = np.mean(PR_solarpanel)
+            for label in self.dataset_class_names:
+                AP_variables["AP_%s" % label] = np.mean(AP_variables["AP_%s" % label])
+                PR_variables["PR_%s" % label] = np.mean(PR_variables["PR_%s" % label])
+                RE_variables["RE_%s" % label] = np.mean(RE_variables["RE_%s" % label])
 
-            RE_goodroof = np.mean(RE_goodroof)
-            RE_parkinglot = np.mean(RE_parkinglot)
-            RE_road = np.mean(RE_road)
-            RE_trees = np.mean(RE_trees)
-            RE_river = np.mean(RE_river)
-            RE_field = np.mean(RE_field)
-            RE_park = np.mean(RE_park)
-            RE_facility = np.mean(RE_facility)
-            RE_solarpanel = np.mean(RE_solarpanel)
+            AP_mean_list = []
+            PR_mean_list = []
+            RE_mean_list = []
+            for label in self.dataset_class_names:
+                AP_mean_list.append(AP_variables["AP_%s" % label])
+                PR_mean_list.append(PR_variables["PR_%s" % label])
+                RE_mean_list.append(RE_variables["RE_%s" % label])
 
-            mAP = np.mean([AP_goodroof, AP_parkinglot, AP_road, AP_trees, AP_river, AP_field, AP_park, AP_facility, AP_solarpanel])
-            mPrecision = np.mean([PR_goodroof, PR_parkinglot, PR_road, PR_trees, PR_river, PR_field, PR_park, PR_facility, PR_solarpanel])
-            mREcall = np.mean([RE_goodroof, RE_parkinglot, RE_road, RE_trees, RE_river, RE_field, RE_park, RE_facility, RE_solarpanel])
+            # AP_goodroof = np.mean(AP_goodroof)
+            # AP_parkinglot = np.mean(AP_parkinglot)
+            # AP_road = np.mean(AP_road)
+            # AP_trees = np.mean(AP_trees)
+            # AP_river = np.mean(AP_river)
+            # AP_field = np.mean(AP_field)
+            # AP_park = np.mean(AP_park)
+            # AP_facility = np.mean(AP_facility)
+            # AP_solarpanel = np.mean(AP_solarpanel)
+            #
+            # PR_goodroof = np.mean(PR_goodroof)
+            # PR_parkinglot = np.mean(PR_parkinglot)
+            # PR_road = np.mean(PR_road)
+            # PR_trees = np.mean(PR_trees)
+            # PR_river = np.mean(PR_river)
+            # PR_field = np.mean(PR_field)
+            # PR_park = np.mean(PR_park)
+            # PR_facility = np.mean(PR_facility)
+            # PR_solarpanel = np.mean(PR_solarpanel)
+            #
+            # RE_goodroof = np.mean(RE_goodroof)
+            # RE_parkinglot = np.mean(RE_parkinglot)
+            # RE_road = np.mean(RE_road)
+            # RE_trees = np.mean(RE_trees)
+            # RE_river = np.mean(RE_river)
+            # RE_field = np.mean(RE_field)
+            # RE_park = np.mean(RE_park)
+            # RE_facility = np.mean(RE_facility)
+            # RE_solarpanel = np.mean(RE_solarpanel)
+
+            mAP = np.mean(AP_mean_list)
+            mPrecision = np.mean(PR_mean_list)
+            mREcall = np.mean(RE_mean_list)
 
             if logs is not None:
-                logs["val_AP_per_Class/goodroof"] = AP_goodroof
-                logs["val_AP_per_Class/parkinglot"] = AP_parkinglot
-                logs["val_AP_per_Class/road"] = AP_road
-                logs["val_AP_per_Class/trees"] = AP_trees
-                logs["val_AP_per_Class/river"] = AP_river
-                logs["val_AP_per_Class/field"] = AP_field
-                logs["val_AP_per_Class/park"] = AP_park
-                logs["val_AP_per_Class/facility"] = AP_facility
-                logs["val_AP_per_Class/solarpanel"] = AP_solarpanel
-
-                logs["val_Precision_per_Class/goodroof"] = PR_goodroof
-                logs["val_Precision_per_Class/parkinglot"] = PR_parkinglot
-                logs["val_Precision_per_Class/road"] = PR_road
-                logs["val_Precision_per_Class/trees"] = PR_trees
-                logs["val_Precision_per_Class/river"] = PR_river
-                logs["val_Precision_per_Class/field"] = PR_field
-                logs["val_Precision_per_Class/park"] = PR_park
-                logs["val_Precision_per_Class/facility"] = PR_facility
-                logs["val_Precision_per_Class/solarpanel"] = PR_solarpanel
-
-                logs["val_Recall_per_Class/goodroof"] = RE_goodroof
-                logs["val_Recall_per_Class/parkinglot"] = RE_parkinglot
-                logs["val_Recall_per_Class/road"] = RE_road
-                logs["val_Recall_per_Class/trees"] = RE_trees
-                logs["val_Recall_per_Class/river"] = RE_river
-                logs["val_Recall_per_Class/field"] = RE_field
-                logs["val_Recall_per_Class/park"] = RE_park
-                logs["val_Recall_per_Class/facility"] = RE_facility
-                logs["val_Recall_per_Class/solarpanel"] = RE_solarpanel
+                for label in self.dataset_class_names:
+                    logs["val_AP_per_Class/%s" % label] = AP_variables["AP_%s" % label]
+                    logs["val_Precision_per_Class/%s" % label] = PR_variables["PR_%s" % label]
+                    logs["val_Recall_per_Class/%s" % label] = RE_variables["RE_%s" % label]
 
                 logs["val_Total/mAP"] = mAP
                 logs["val_Total/mPrecision"] = mPrecision
@@ -3016,35 +3008,13 @@ class MeanAveragePrecisionCallback(Callback):
                                           by_name=True)
 
     def _calculate_mean_average_precision(self):
-        AP_goodroof = []
-        AP_parkinglot = []
-        AP_road = []
-        AP_trees = []
-        AP_river = []
-        AP_field = []
-        AP_park = []
-        AP_facility = []
-        AP_solarpanel = []
-
-        PR_goodroof = []
-        PR_parkinglot = []
-        PR_road = []
-        PR_trees = []
-        PR_river = []
-        PR_field = []
-        PR_park = []
-        PR_facility = []
-        PR_solarpanel = []
-
-        RE_goodroof = []
-        RE_parkinglot = []
-        RE_road = []
-        RE_trees = []
-        RE_river = []
-        RE_field = []
-        RE_park = []
-        RE_facility = []
-        RE_solarpanel = []
+        AP_variables = {}
+        PR_variables = {}
+        RE_variables = {}
+        for label in self.dataset_class_names:
+            AP_variables["AP_%s" % label] = []
+            PR_variables["PR_%s" % label] = []
+            RE_variables["RE_%s" % label] = []
 
         np.random.shuffle(self.dataset_image_ids)
 
@@ -3054,10 +3024,8 @@ class MeanAveragePrecisionCallback(Callback):
             results = self.inference_model.detect([image], verbose=0)
             r = results[0]
 
-            goodroof_ap, parkinglot_ap, road_ap, trees_ap, river_ap, field_ap, park_ap, facility_ap, solarpanel_ap,\
-            pr_goodroof, pr_parkinglot, pr_road, pr_trees, pr_river, pr_field, pr_park, pr_facility, pr_solarpanel,\
-            re_goodroof, re_parkinglot, re_road, re_trees, re_river, re_field, re_park, re_facility, re_solarpanel\
-                = utils.compute_ap(
+            ap_variables, pr_variables, re_variables = utils.compute_ap(
+                self.dataset_class_names,
                 gt_bbox,
                 gt_class_id,
                 gt_mask,
@@ -3066,36 +3034,59 @@ class MeanAveragePrecisionCallback(Callback):
                 r["scores"],
                 r['masks'])
 
-            AP_goodroof.append(goodroof_ap)
-            AP_parkinglot.append(parkinglot_ap)
-            AP_road.append(road_ap)
-            AP_trees.append(trees_ap)
-            AP_river.append(river_ap)
-            AP_field.append(field_ap)
-            AP_park.append(park_ap)
-            AP_facility.append(facility_ap)
-            AP_solarpanel.append(solarpanel_ap)
+            # goodroof_ap, parkinglot_ap, road_ap, trees_ap, river_ap, field_ap, park_ap, facility_ap, solarpanel_ap,\
+            # pr_goodroof, pr_parkinglot, pr_road, pr_trees, pr_river, pr_field, pr_park, pr_facility, pr_solarpanel,\
+            # re_goodroof, re_parkinglot, re_road, re_trees, re_river, re_field, re_park, re_facility, re_solarpanel\
+            #     = utils.compute_ap(
+            #     gt_bbox,
+            #     gt_class_id,
+            #     gt_mask,
+            #     r["rois"],
+            #     r["class_ids"],
+            #     r["scores"],
+            #     r['masks'])
+            for label in self.dataset_class_names:
+                AP_variables["AP_%s" % label].append(ap_variables["AP_%s" % label])
+                PR_variables["PR_%s" % label].append(pr_variables["PR_%s" % label])
+                RE_variables["RE_%s" % label].append(re_variables["RE_%s" % label])
 
-            PR_goodroof.append(pr_goodroof)
-            PR_parkinglot.append(pr_parkinglot)
-            PR_road.append(pr_road)
-            PR_trees.append(pr_trees)
-            PR_river.append(pr_river)
-            PR_field.append(pr_field)
-            PR_park.append(pr_park)
-            PR_facility.append(pr_facility)
-            PR_solarpanel.append(pr_solarpanel)
+            # AP_goodroof.append(goodroof_ap)
+            # AP_parkinglot.append(parkinglot_ap)
+            # AP_road.append(road_ap)
+            # AP_trees.append(trees_ap)
+            # AP_river.append(river_ap)
+            # AP_field.append(field_ap)
+            # AP_park.append(park_ap)
+            # AP_facility.append(facility_ap)
+            # AP_solarpanel.append(solarpanel_ap)
+            #
+            # PR_goodroof.append(pr_goodroof)
+            # PR_parkinglot.append(pr_parkinglot)
+            # PR_road.append(pr_road)
+            # PR_trees.append(pr_trees)
+            # PR_river.append(pr_river)
+            # PR_field.append(pr_field)
+            # PR_park.append(pr_park)
+            # PR_facility.append(pr_facility)
+            # PR_solarpanel.append(pr_solarpanel)
+            #
+            # RE_goodroof.append(re_goodroof)
+            # RE_parkinglot.append(re_parkinglot)
+            # RE_road.append(re_road)
+            # RE_trees.append(re_trees)
+            # RE_river.append(re_river)
+            # RE_field.append(re_field)
+            # RE_park.append(re_park)
+            # RE_facility.append(re_facility)
+            # RE_solarpanel.append(re_solarpanel)
 
-            RE_goodroof.append(re_goodroof)
-            RE_parkinglot.append(re_parkinglot)
-            RE_road.append(re_road)
-            RE_trees.append(re_trees)
-            RE_river.append(re_river)
-            RE_field.append(re_field)
-            RE_park.append(re_park)
-            RE_facility.append(re_facility)
-            RE_solarpanel.append(re_solarpanel)
+        for label in self.dataset_class_names:
+            AP_variables["AP_%s" % label] = np.array(AP_variables["AP_%s" % label])
+            PR_variables["PR_%s" % label] = np.array(PR_variables["PR_%s" % label])
+            RE_variables["RE_%s" % label] = np.array(RE_variables["RE_%s" % label])
 
-        return np.array(AP_goodroof), np.array(AP_parkinglot), np.array(AP_road), np.array(AP_trees), np.array(AP_river), np.array(AP_field), np.array(AP_park), np.array(AP_facility), np.array(AP_solarpanel), \
-               np.array(PR_goodroof), np.array(PR_parkinglot), np.array(PR_road), np.array(PR_trees), np.array(PR_river), np.array(PR_field), np.array(PR_park), np.array(PR_facility), np.array(PR_solarpanel),\
-               np.array(RE_goodroof), np.array(RE_parkinglot), np.array(RE_road), np.array(RE_trees), np.array(RE_river), np.array(RE_field), np.array(RE_park), np.array(RE_facility), np.array(RE_facility)
+        return AP_variables, PR_variables, RE_variables
+
+        # return np.array(AP_goodroof), np.array(AP_parkinglot), np.array(AP_road), np.array(AP_trees), np.array(AP_river), np.array(AP_field), np.array(AP_park), np.array(AP_facility), np.array(AP_solarpanel), \
+        #        np.array(PR_goodroof), np.array(PR_parkinglot), np.array(PR_road), np.array(PR_trees), np.array(PR_river), np.array(PR_field), np.array(PR_park), np.array(PR_facility), np.array(PR_solarpanel),\
+        #        np.array(RE_goodroof), np.array(RE_parkinglot), np.array(RE_road), np.array(RE_trees), np.array(RE_river), np.array(RE_field), np.array(RE_park), np.array(RE_facility), np.array(RE_facility)

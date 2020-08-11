@@ -712,7 +712,7 @@ def compute_matches(gt_boxes, gt_class_ids, gt_masks,
     return gt_match, pred_match, overlaps
 
 
-def compute_ap(gt_boxes, gt_class_ids, gt_masks,
+def compute_ap(dataset_class_names, gt_boxes, gt_class_ids, gt_masks,
                pred_boxes, pred_class_ids, pred_scores, pred_masks,
                iou_threshold=0.5):
     """Compute Average Precision at a set IoU threshold (default 0.5).
@@ -733,35 +733,13 @@ def compute_ap(gt_boxes, gt_class_ids, gt_masks,
     precisions_for_classAP = np.cumsum(pred_match > -1) / (np.arange(len(pred_match)) + 1)
     recalls_for_classAP = np.cumsum(pred_match > -1).astype(np.float32) / len(gt_match)
 
-    AP_goodroof = []
-    AP_parkinglot = []
-    AP_road = []
-    AP_trees = []
-    AP_river = []
-    AP_field = []
-    AP_park = []
-    AP_facility = []
-    AP_solarpanel = []
-
-    PR_goodroof = []
-    PR_parkinglot = []
-    PR_road = []
-    PR_trees = []
-    PR_river = []
-    PR_field = []
-    PR_park = []
-    PR_facility = []
-    PR_solarpanel = []
-
-    RE_goodroof = []
-    RE_parkinglot = []
-    RE_road = []
-    RE_trees = []
-    RE_river = []
-    RE_field = []
-    RE_park = []
-    RE_facility = []
-    RE_solarpanel = []
+    AP_variables = {}
+    PR_variables = {}
+    RE_variables = {}
+    for label in dataset_class_names:
+        AP_variables["AP_%s" % label] = []
+        PR_variables["PR_%s" % label] = []
+        RE_variables["RE_%s" % label] = []
 
     for i, class_id in enumerate(pred_class_ids):
         precisions_math = np.concatenate([[0], [precisions_for_classAP[i]], [0]])
@@ -779,83 +757,100 @@ def compute_ap(gt_boxes, gt_class_ids, gt_masks,
         AP = np.sum((recalls_math[indices] - recalls_math[indices - 1]) *
                     precisions_math[indices])
 
-        if class_id == 1:
-            AP_goodroof.append(AP)
-            PR_goodroof.append(precisions_for_classAP[i])
-            RE_goodroof.append(recalls_for_classAP[i])
-        elif class_id == 2:
-            AP_parkinglot.append(AP)
-            PR_parkinglot.append(precisions_for_classAP[i])
-            RE_parkinglot.append(recalls_for_classAP[i])
-        elif class_id == 3:
-            AP_road.append(AP)
-            PR_road.append(precisions_for_classAP[i])
-            RE_road.append(recalls_for_classAP[i])
-        elif class_id == 4:
-            AP_trees.append(AP)
-            PR_trees.append(precisions_for_classAP[i])
-            RE_trees.append(recalls_for_classAP[i])
-        elif class_id == 5:
-            AP_river.append(AP)
-            PR_river.append(precisions_for_classAP[i])
-            RE_river.append(recalls_for_classAP[i])
-        elif class_id == 6:
-            AP_field.append(AP)
-            PR_field.append(precisions_for_classAP[i])
-            RE_field.append(recalls_for_classAP[i])
-        elif class_id == 7:
-            AP_park.append(AP)
-            PR_park.append(precisions_for_classAP[i])
-            RE_park.append(recalls_for_classAP[i])
-        elif class_id == 8:
-            AP_facility.append(AP)
-            PR_facility.append(precisions_for_classAP[i])
-            RE_facility.append(recalls_for_classAP[i])
-        elif class_id == 9:
-            AP_solarpanel.append(AP)
-            PR_solarpanel.append(precisions_for_classAP[i])
-            RE_solarpanel.append(recalls_for_classAP[i])
-            
-    if len(AP_goodroof) == 0:
-        AP_goodroof = 0.0
-        PR_goodroof = 0.0
-        RE_goodroof = 0.0
-    if len(AP_parkinglot) == 0:
-        AP_parkinglot = 0.0
-        PR_parkinglot = 0.0
-        RE_parkinglot = 0.0
-    if len(AP_road) == 0:
-        AP_road = 0.0
-        PR_road = 0.0
-        RE_road = 0.0
-    if len(AP_trees) == 0:
-        AP_trees = 0.0
-        PR_trees = 0.0
-        RE_trees = 0.0
-    if len(AP_river) == 0:
-        AP_river = 0.0
-        PR_river = 0.0
-        RE_river = 0.0
-    if len(AP_field) == 0:
-        AP_field = 0.0
-        PR_field= 0.0
-        RE_field = 0.0
-    if len(AP_park) == 0:
-        AP_park = 0.0
-        PR_park = 0.0
-        RE_park = 0.0
-    if len(AP_facility) == 0:
-        AP_facility = 0.0
-        PR_facility = 0.0
-        RE_facility = 0.0
-    if len(AP_solarpanel) == 0:
-        AP_solarpanel = 0.0
-        PR_solarpanel = 0.0
-        RE_solarpanel = 0.0
+        class_name = dataset_class_names[class_id - 1]
+        AP_variables["AP_%s" % class_name].append(AP)
+        PR_variables["PR_%s" % class_name].append(precisions_for_classAP[i])
+        RE_variables["RE_%s" % class_name].append(recalls_for_classAP[i])
+        # if class_id == 1:
+        #     AP_goodroof.append(AP)
+        #     PR_goodroof.append(precisions_for_classAP[i])
+        #     RE_goodroof.append(recalls_for_classAP[i])
+        # elif class_id == 2:
+        #     AP_parkinglot.append(AP)
+        #     PR_parkinglot.append(precisions_for_classAP[i])
+        #     RE_parkinglot.append(recalls_for_classAP[i])
+        # elif class_id == 3:
+        #     AP_road.append(AP)
+        #     PR_road.append(precisions_for_classAP[i])
+        #     RE_road.append(recalls_for_classAP[i])
+        # elif class_id == 4:
+        #     AP_trees.append(AP)
+        #     PR_trees.append(precisions_for_classAP[i])
+        #     RE_trees.append(recalls_for_classAP[i])
+        # elif class_id == 5:
+        #     AP_river.append(AP)
+        #     PR_river.append(precisions_for_classAP[i])
+        #     RE_river.append(recalls_for_classAP[i])
+        # elif class_id == 6:
+        #     AP_field.append(AP)
+        #     PR_field.append(precisions_for_classAP[i])
+        #     RE_field.append(recalls_for_classAP[i])
+        # elif class_id == 7:
+        #     AP_park.append(AP)
+        #     PR_park.append(precisions_for_classAP[i])
+        #     RE_park.append(recalls_for_classAP[i])
+        # elif class_id == 8:
+        #     AP_facility.append(AP)
+        #     PR_facility.append(precisions_for_classAP[i])
+        #     RE_facility.append(recalls_for_classAP[i])
+        # elif class_id == 9:
+        #     AP_solarpanel.append(AP)
+        #     PR_solarpanel.append(precisions_for_classAP[i])
+        #     RE_solarpanel.append(recalls_for_classAP[i])
 
-    return np.mean(AP_goodroof), np.mean(AP_parkinglot), np.mean(AP_road), np.mean(AP_trees), np.mean(AP_river), np.mean(AP_field), np.mean(AP_park), np.mean(AP_facility), np.mean(AP_solarpanel),\
-           np.mean(PR_goodroof), np.mean(PR_parkinglot), np.mean(PR_road), np.mean(PR_trees), np.mean(PR_river), np.mean(PR_field), np.mean(PR_park), np.mean(PR_facility), np.mean(PR_solarpanel),\
-           np.mean(RE_goodroof), np.mean(RE_parkinglot), np.mean(RE_road), np.mean(RE_trees), np.mean(RE_river), np.mean(RE_field), np.mean(RE_park), np.mean(RE_facility), np.mean(RE_solarpanel)
+    for label in dataset_class_names:
+        if len(AP_variables["AP_%s" % label]) == 0:
+            AP_variables["AP_%s" % label] = 0.0
+            PR_variables["PR_%s" % label] = 0.0
+            RE_variables["RE_%s" % label] = 0.0
+
+    # if len(AP_goodroof) == 0:
+    #     AP_goodroof = 0.0
+    #     PR_goodroof = 0.0
+    #     RE_goodroof = 0.0
+    # if len(AP_parkinglot) == 0:
+    #     AP_parkinglot = 0.0
+    #     PR_parkinglot = 0.0
+    #     RE_parkinglot = 0.0
+    # if len(AP_road) == 0:
+    #     AP_road = 0.0
+    #     PR_road = 0.0
+    #     RE_road = 0.0
+    # if len(AP_trees) == 0:
+    #     AP_trees = 0.0
+    #     PR_trees = 0.0
+    #     RE_trees = 0.0
+    # if len(AP_river) == 0:
+    #     AP_river = 0.0
+    #     PR_river = 0.0
+    #     RE_river = 0.0
+    # if len(AP_field) == 0:
+    #     AP_field = 0.0
+    #     PR_field= 0.0
+    #     RE_field = 0.0
+    # if len(AP_park) == 0:
+    #     AP_park = 0.0
+    #     PR_park = 0.0
+    #     RE_park = 0.0
+    # if len(AP_facility) == 0:
+    #     AP_facility = 0.0
+    #     PR_facility = 0.0
+    #     RE_facility = 0.0
+    # if len(AP_solarpanel) == 0:
+    #     AP_solarpanel = 0.0
+    #     PR_solarpanel = 0.0
+    #     RE_solarpanel = 0.0
+
+    for label in dataset_class_names:
+        AP_variables["AP_%s" % label] = np.mean(AP_variables["AP_%s" % label])
+        PR_variables["PR_%s" % label] = np.mean(PR_variables["PR_%s" % label])
+        RE_variables["RE_%s" % label] = np.mean(RE_variables["RE_%s" % label])
+
+    return AP_variables, PR_variables, RE_variables
+
+    # return np.mean(AP_goodroof), np.mean(AP_parkinglot), np.mean(AP_road), np.mean(AP_trees), np.mean(AP_river), np.mean(AP_field), np.mean(AP_park), np.mean(AP_facility), np.mean(AP_solarpanel),\
+    #        np.mean(PR_goodroof), np.mean(PR_parkinglot), np.mean(PR_road), np.mean(PR_trees), np.mean(PR_river), np.mean(PR_field), np.mean(PR_park), np.mean(PR_facility), np.mean(PR_solarpanel),\
+    #        np.mean(RE_goodroof), np.mean(RE_parkinglot), np.mean(RE_road), np.mean(RE_trees), np.mean(RE_river), np.mean(RE_field), np.mean(RE_park), np.mean(RE_facility), np.mean(RE_solarpanel)
 
 
 def compute_ap_range(gt_box, gt_class_id, gt_mask,
