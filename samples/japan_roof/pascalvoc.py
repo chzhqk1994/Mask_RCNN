@@ -12,19 +12,19 @@ Usage: import the module (see Jupyter notebooks for examples), or run from
        the command line as such:
 
     # Train a new model starting from pre-trained COCO weights
-    python3 japan_roof.py train --dataset=/path/to/balloon/dataset --weights=coco
+    python3 train.py train --dataset=/path/to/balloon/dataset --weights=coco
 
     # Resume training a model that you had trained earlier
-    python3 japan_roof.py train --dataset=/path/to/balloon/dataset --weights=last
+    python3 train.py train --dataset=/path/to/balloon/dataset --weights=last
 
     # Train a new model starting from ImageNet weights
-    python3 japan_roof.py train --dataset=/path/to/balloon/dataset --weights=imagenet
+    python3 train.py train --dataset=/path/to/balloon/dataset --weights=imagenet
 
     # Apply color splash to an image
-    python3 japan_roof.py splash --weights=/path/to/weights/file.h5 --image=<URL or path to file>
+    python3 train.py splash --weights=/path/to/weights/file.h5 --image=<URL or path to file>
 
     # Apply color splash to video using the last weights you trained
-    python3 japan_roof.py splash --weights=last --video=<URL or path to file>
+    python3 train.py splash --weights=last --video=<URL or path to file>
 """
 
 import os
@@ -35,6 +35,9 @@ import numpy as np
 import skimage.draw
 import math
 import platform
+from samples.dataset_info import Config as DatasetConfig
+
+os.environ['CUDA_VISIBLE_DEVICES'] = str(DatasetConfig.GPU_NUMBER)
 
 FLATFORM = platform.system()
 
@@ -43,7 +46,6 @@ ROOT_DIR = os.path.abspath("../../")
 
 # Import Mask RCNN
 sys.path.append(ROOT_DIR)  # To find local version of the library
-from samples.dataset_info import Config as DatasetConfig
 from mrcnn.config import Config
 from custom_lib import model as modellib, utils
 
@@ -53,14 +55,20 @@ COCO_WEIGHTS_PATH = os.path.join(ROOT_DIR, "mask_rcnn_coco.h5")
 # Directory to save logs and model checkpoints, if not provided
 # through the command line argument --logs
 DEFAULT_LOGS_DIR = os.path.join(ROOT_DIR, "logs")
+SUB_LOGS_DIR = os.path.join(DEFAULT_LOGS_DIR, DatasetConfig.DATASET_DESCRIPTION)
 
+if not os.path.exists(DEFAULT_LOGS_DIR):
+    os.mkdir(DEFAULT_LOGS_DIR)
+
+if not os.path.exists(SUB_LOGS_DIR):
+    os.mkdir(SUB_LOGS_DIR)
 
 ############################################################
 #  Configurations
 ############################################################
 
 
-class PascalVOCConfig(Config):
+class MaskRcnnConfig(Config):
     """Configuration for training on the toy  dataset.
     Derives from the base Config class and overrides some values.
     """
@@ -75,13 +83,13 @@ class PascalVOCConfig(Config):
     NUM_CLASSES = 1 + len(DatasetConfig.CLASS_NAMES)  # Background + balloon
 
     # Number of training steps per epoch
-    STEPS_PER_EPOCH = 1
+    STEPS_PER_EPOCH = DatasetConfig.STEPS_PER_EPOCH
 
     # Skip detections with < 90% confidence
-    DETECTION_MIN_CONFIDENCE = 0.8
+    DETECTION_MIN_CONFIDENCE = DatasetConfig.DETECTION_MIN_CONFIDENCE
 
 
-class _InferenceConfig(PascalVOCConfig):
+class _InferenceConfig(MaskRcnnConfig):
     # Set batch size to 1 since we'll be running inference on
     # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
     GPU_COUNT = 1
@@ -92,10 +100,10 @@ class _InferenceConfig(PascalVOCConfig):
 #  Dataset
 ############################################################
 
-class PascalVOCDataset(utils.Dataset):
+class MaskRcnnDataset(utils.Dataset):
 
-    def load_pascalvoc(self, dataset_dir, subset):
-        """Load a subset of the japan_roof dataset.
+    def load_dataset(self, dataset_dir, subset):
+        """Load a subset of the dataset.
         dataset_dir: Root directory of the dataset.
         subset: Subset to load: train or val
         """
@@ -126,24 +134,9 @@ class PascalVOCDataset(utils.Dataset):
                 for i in polygons:
                     label = i["label"]
                     try:
-                        if label == "goodroof":
-                            num_ids.append(1)
-                        elif label == "parkinglot":
-                            num_ids.append(2)
-                        elif label == "road":
-                            num_ids.append(3)
-                        elif label == "trees":
-                            num_ids.append(4)
-                        elif label == "river":
-                            num_ids.append(5)
-                        elif label == "field":
-                            num_ids.append(6)
-                        elif label == "park":
-                            num_ids.append(7)
-                        elif label == "facility":
-                            num_ids.append(8)
-                        elif label == "solarpanel":
-                            num_ids.append(9)
+                        # num_dis : 0 => background
+                        num_ids.append(DatasetConfig.CLASS_NAMES.index(label) + 1)
+
                     except:
                         pass
 
@@ -154,7 +147,7 @@ class PascalVOCDataset(utils.Dataset):
                 print(json_file, image_file_path)
 
                 self.add_image(
-                    "pascalvoc",
+                    DatasetConfig.NAME,
                     image_id=annotations['imagePath'],  # use file name as a unique image id
                     path=image_file_path,
                     width=width, height=height,
@@ -170,7 +163,7 @@ class PascalVOCDataset(utils.Dataset):
         """
         # If not a balloon dataset image, delegate to parent class.
         image_info = self.image_info[image_id]
-        if image_info["source"] != "pascalvoc":
+        if image_info["source"] != DatasetConfig.NAME:
             return super(self.__class__, self).load_mask(image_id)
 
         num_ids = image_info['num_ids']
@@ -187,10 +180,10 @@ class PascalVOCDataset(utils.Dataset):
             all_points_x = []
             all_points_y = []
             for point in p["points"]:
-                if point[0] > 640:
-                    point[0] = 640
-                if point[1] > 640:
-                    point[1] = 640
+                if point[0] > DatasetConfig.MAX_IMAGE_WIDTH:
+                    point[0] = DatasetConfig.MAX_IMAGE_WIDTH
+                if point[1] > DatasetConfig.MAX_IMAGE_HEIGHT:
+                    point[1] = DatasetConfig.MAX_IMAGE_HEIGHT
                 all_points_x.append(point[0])
                 all_points_y.append(point[1])
 
@@ -207,10 +200,10 @@ class PascalVOCDataset(utils.Dataset):
                                                                 flag='separate')
 
                     for index in range(0, len(points_x)):
-                        if points_x[index] > 640:
-                            points_x[index] = 640
-                        if points_y[index] > 640:
-                            points_y[index] = 640
+                        if points_x[index] > DatasetConfig.MAX_IMAGE_WIDTH:
+                            points_x[index] = DatasetConfig.MAX_IMAGE_WIDTH
+                        if points_y[index] > DatasetConfig.MAX_IMAGE_HEIGHT:
+                            points_y[index] = DatasetConfig.MAX_IMAGE_HEIGHT
                         if points_x[index] < 0:
                             points_x[index] = 0
                         if points_y[index] < 0:
@@ -222,12 +215,6 @@ class PascalVOCDataset(utils.Dataset):
             except IndexError as e:
                 is_error = True
 
-                print(e)
-                print(image_info['id'])
-                print(center_coord)
-                print(second_coord)
-                print(all_points_x)
-                print(all_points_y)
                 with open('error_file_circle.txt', 'a') as fd:
                     fd.write('image id : ' + str(image_info['id']) + '\n')
                     fd.write('shape type : ' + str(p['shape_type']) + '\n')
@@ -250,12 +237,7 @@ class PascalVOCDataset(utils.Dataset):
                 rr, cc = skimage.draw.polygon(all_points_y, all_points_x)
                 mask[rr, cc, i] = 1
             except IndexError as e:
-                print(e)
-                print(p['shape_type'])
-                print(center_coord)
-                print(second_coord)
-                print(all_points_x)
-                print(all_points_y)
+
                 with open('error_file.txt', 'a') as fd:
                     fd.write('shape type : ' + str(p['shape_type']) + '\n')
                     fd.write("center coord : " + str(center_coord) + '\n')
@@ -273,7 +255,7 @@ class PascalVOCDataset(utils.Dataset):
     def image_reference(self, image_id):
         """Return the path of the image."""
         info = self.image_info[image_id]
-        if info["source"] == "pascalvoc":
+        if info["source"] == DatasetConfig.NAME:
             return info["path"]
         else:
             super(self.__class__, self).image_reference(image_id)
@@ -320,13 +302,13 @@ class PascalVOCDataset(utils.Dataset):
 def train(model):
     """Train the model."""
     # Training dataset.
-    dataset_train = PascalVOCDataset()
-    dataset_train.load_pascalvoc(args.dataset, "train")
+    dataset_train = MaskRcnnDataset()
+    dataset_train.load_dataset(args.dataset, "train")
     dataset_train.prepare()
 
     # Validation dataset
-    dataset_val = PascalVOCDataset()
-    dataset_val.load_pascalvoc(args.dataset, "val")
+    dataset_val = MaskRcnnDataset()
+    dataset_val.load_dataset(args.dataset, "val")
     dataset_val.prepare()
 
     # *** This training schedule is an example. Update to your needs ***
@@ -335,13 +317,13 @@ def train(model):
     # no need to train all layers, just the heads should do it.
     print("Training network heads")
     infconfig = _InferenceConfig()
-    model_inference = modellib.MaskRCNN(mode="inference", config=infconfig, model_dir=args.logs)
+    model_inference = modellib.MaskRCNN(mode="inference", config=infconfig, model_dir=SUB_LOGS_DIR)
     mean_average_precision_callback = modellib.MeanAveragePrecisionCallback(model, model_inference,
                                                                             dataset_val, DatasetConfig.CLASS_NAMES, calculate_at_every_X_epoch=4,
                                                                             verbose=1)
     model.train(dataset_train, dataset_val,
                 learning_rate=config.LEARNING_RATE,
-                epochs=2000000,
+                epochs=DatasetConfig.TRAINING_STEP,
                 layers='heads',
                 custom_callbacks=[mean_average_precision_callback])
 
@@ -427,20 +409,16 @@ if __name__ == '__main__':
 
     # Parse command line arguments
     parser = argparse.ArgumentParser(
-        description='Train Mask R-CNN to detect from pascalVOC dataset.')
+        description='Train Mask R-CNN to detect from dataset.')
     parser.add_argument("command",
                         metavar="<command>",
                         help="'train' or 'splash'")
     parser.add_argument('--dataset', required=False,
-                        metavar="/path/to/pascalvoc/dataset/",
-                        help='Directory of the PascalVoc dataset')
+                        metavar="/path/to/dataset/",
+                        help='Directory of the dataset')
     parser.add_argument('--weights', required=True,
                         metavar="/path/to/weights.h5",
                         help="Path to weights .h5 file or 'coco'")
-    parser.add_argument('--logs', required=False,
-                        default=DEFAULT_LOGS_DIR,
-                        metavar="/path/to/logs/",
-                        help='Logs and checkpoints directory (default=logs/)')
     parser.add_argument('--image', required=False,
                         metavar="path or URL to image",
                         help='Image to apply the color splash effect on')
@@ -458,13 +436,12 @@ if __name__ == '__main__':
 
     print("Weights: ", args.weights)
     print("Dataset: ", args.dataset)
-    print("Logs: ", args.logs)
 
     # Configurations
     if args.command == "train":
-        config = PascalVOCConfig()
+        config = MaskRcnnConfig()
     else:
-        class InferenceConfig(PascalVOCConfig):
+        class InferenceConfig(MaskRcnnConfig):
             # Set batch size to 1 since we'll be running inference on
             # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
             GPU_COUNT = 1
@@ -477,10 +454,10 @@ if __name__ == '__main__':
     # Create model
     if args.command == "train":
         model = modellib.MaskRCNN(mode="training", config=config,
-                                  model_dir=args.logs)
+                                  model_dir=SUB_LOGS_DIR)
     else:
         model = modellib.MaskRCNN(mode="inference", config=config,
-                                  model_dir=args.logs)
+                                  model_dir=SUB_LOGS_DIR)
 
     # Select weights file to load
     if args.weights.lower() == "coco":
