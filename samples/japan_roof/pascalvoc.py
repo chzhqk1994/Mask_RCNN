@@ -35,9 +35,6 @@ import numpy as np
 import skimage.draw
 import math
 import platform
-from samples.dataset_info import Config as DatasetConfig
-
-os.environ['CUDA_VISIBLE_DEVICES'] = str(DatasetConfig.GPU_NUMBER)
 
 FLATFORM = platform.system()
 
@@ -46,6 +43,10 @@ ROOT_DIR = os.path.abspath("../../")
 
 # Import Mask RCNN
 sys.path.append(ROOT_DIR)  # To find local version of the library
+
+from samples.dataset_info import Config as DatasetConfig
+os.environ['CUDA_VISIBLE_DEVICES'] = str(DatasetConfig.GPU_NUMBER)
+
 from mrcnn.config import Config
 from custom_lib import model as modellib, utils
 
